@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPPR - Kenyan Past Papers Repository</title>
+<LInk rel="icon" type="image" href="https://i.imghippo.com/files/WlI4355HNo.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<style type="text/tailwind">
+    #sidebar-line{
+     width: 2px;
+     height: 80vh;
+    }
+    @layer components {
+    
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #E5E7EB;
+    border-radius: 2px;
+}
+
+.toast-enter {
+    transform: translateX(100%);
+}
+.toast-enter-active {
+    transform: translateX(0);
+    transition: transform 500ms ease-in-out;
+}
+.toast-exit {
+    transform: translateX(0);
+}
+.toast-exit-active {
+    transform: translateX(100%);
+    transition: transform 500ms ease-in-out;
+}
+</style>
+
+<script>
+    // Navigation state management
+    let currentPage = 'auth';
+    const pages = ['auth', 'home', 'browse', 'collection', 'about', 'profile'];
+    let currentUser = null;
+    let documents = [];
+
+    function showProfileModal() {
+    document.getElementById('profile').classList.remove('hidden');
+    // Populate the form with current user data
+    document.getElementById('profile-username').value = currentUser.username;
+    document.getElementById('profile-email').value = currentUser.email;
+}
+
+function closeProfileModal() {
+    document.getElementById('profile').classList.add('hidden');
+}
+
+function showPage(pageId) {
+    if (pageId === 'profile') {
+        showProfileModal();
+    } else {
+        pages.forEach(page => {
+            const element = document.getElementById(page);
+            if (element) {
+                element.classList.toggle('hidden', page !== pageId);
+            }
+        });
+        currentPage = pageId;
+        
+        // Update active navigation state
+        document.querySelectorAll('.sidebar-button').forEach(item => {
+            item.classList.toggle('active', item.dataset.page === pageId);
+        });
+
+        // Close mobile menu after navigation on mobile devices
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && window.innerWidth < 768) {
+            sidebar.classList.add('-translate-x-full');
+        }
+        
+        // Update recent upload if on browse page
+        if (pageId === 'browse') {
+            updateRecentUpload();
+        }
+    }
+}
+
+
+    // Toggle mobile menu
+    function toggleMenu() {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.classList.toggle('-translate-x-full');
+    }
+    
+    // Update user profile in sidebar
+    function updateUserProfile() {
+        if (currentUser) {
+            document.getElementById('user-name').textContent = currentUser.username;
+            document.getElementById('user-username').textContent = `@${currentUser.username}`;
+            document.querySelectorAll('.user-greeting').forEach(el => {
+                el.textContent = `Karibu, ${currentUser.username}`;
+            });
+        } else {
+            document.getElementById('user-name').textContent = 'Guest';
+            document.getElementById('user-username').textContent = '@guest';
+            document.querySelectorAll('.user-greeting').forEach(el => {
+                el.textContent = `Karibu, Guest`;
+            });
+        }
+    }
+
+    // Handle file upload
+    function handleFileUpload() {
+        document.getElementById('upload-modal').classList.remove('hidden');
+    }
+
+    // Handle paper upload form submission
+    async function handlePaperUpload(event) {
+        event.preventDefault();
+        
+        const formData = new FormData();
+        formData.append('paper', document.getElementById('paper-file').files[0]);
+        formData.append('title', document.getElementById('paper-title').value);
+        formData.append('educationLevel', document.getElementById('education-level').value);
+        formData.append('institution', document.getElementById('institution').value);
+        formData.append('subject', document.getElementById('subject').value);
+        formData.append('year', document.getElementById('year').value);
+
+        try {
+            const response = await fetch('/upload-paper', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            if (result.success) {
+                closeUploadModal();
+                fetchPapers();
+                showToast('Paper uploaded successfully');
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            showToast('Failed to upload paper');
+        }
+    }
+
+    // Close upload form
+    function closeUploadModal() {
+        document.getElementById('upload-modal').classList.add('hidden');
+        // Reset form
+        document.querySelector('#upload-modal form').reset();
+        document.getElementById('file-name').textContent = 'No file chosen';
+    }
+
+    // Update document lists
+    function updateDocumentLists() {
+        const browseList = document.getElementById('browse-list');
+        const collectionList = document.getElementById('collection-list');
+        
+        browseList.innerHTML = '';
+        collectionList.innerHTML = '';
+        
+        documents.forEach(doc => {
+            const docElement = createDocumentElement(doc);
+            browseList.appendChild(docElement.cloneNode(true));
+            
+            if (doc.inCollection) {
+                collectionList.appendChild(docElement);
+            }
+        });
+    }
+
+    function updateDocumentList(docs) {
+            const browseList = document.getElementById('browse-list');
+            browseList.innerHTML = '';
+            docs.forEach(doc => {
+                const docElement = createDocumentElement(doc, false);
+                browseList.appendChild(docElement);
+            });
+        }
+
+    // Filter papers by education level
+    function filterPapers(level) {
+        const title = document.getElementById('papers-title');
+        switch(level) {
+            case 'all':
+                title.textContent = 'ALL PAST PAPERS';
+                break;
+            case 'university':
+                title.textContent = 'UNIVERSITY PAST PAPERS';
+                break;
+            case 'secondary':
+                title.textContent = 'SECONDARY SCHOOL PAPERS';
+                break;
+            case 'primary':
+                title.textContent = 'PRIMARY SCHOOL PAPERS';
+                break;
+        }
+        
+        const browseList = document.getElementById('browse-list');
+        browseList.innerHTML = '';
+        
+        const filteredDocs = level === 'all' ? documents : documents.filter(doc => doc.educationLevel === level);
+        filteredDocs.forEach(doc => {
+            const docElement = createDocumentElement(doc);
+            browseList.appendChild(docElement);
+        });
+    }
+
+    // Create document element
+    function createDocumentElement(doc, isCollectionView = false) {
+            const docElement = document.createElement('div');
+            docElement.id = `doc-${doc._id}`;
+            docElement.className = 'paper-card bg-white shadow-md rounded-lg p-4 mb-4';
+            docElement.innerHTML = `
+                <div class="flex gap-4">
+                    <img src="${doc.uploadedBy.profilePicture ? doc.uploadedBy.profilePicture.url : '/default-profile.png'}" alt="Profile Picture" class="w-10 h-10 object-cover rounded-full" />
+                    <div>
+                        <h3 class="font-bold">${doc.title}</h3>
+                        <p class="text-gray-600">Uploaded by ${doc.uploadedBy.username} on ${new Date(doc.uploadDate).toLocaleDateString()}</p>
+                        <p class="text-sm text-blue-600 mt-1">
+                            <span class="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded">#${doc.subject}</span>
+                            <span class="bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded">#${doc.institution}</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="mt-2 flex gap-2">
+                    <button onclick="downloadDocument('${doc._id}')" class="text-blue-600 hover:underline">Download</button>
+                    ${isCollectionView 
+                        ? `<button onclick="removeFromCollection('${doc._id}')" class="text-red-600 hover:underline">Remove from Collection</button>`
+                        : `<button onclick="${doc.inCollection ? `removeFromCollection('${doc._id}')` : `addToCollection('${doc._id}')`}" 
+                                class="${doc.inCollection ? 'text-red-600' : 'text-green-600'} hover:underline">
+                            ${doc.inCollection ? 'Added to Collection' : 'Add to Collection'}
+                          </button>`
+                    }
+                    ${doc.isUploader
+                        ? `<button onclick="deleteDocument('${doc._id}')" class="text-red-600 hover:underline">Delete</button>`
+                        : ''
+                    }
+                </div>
+            `;
+            return docElement;
+        }
+
+//add to collection function
+function addToCollection(docId) {
+            fetch(`/api/collection/add/${docId}`, { method: 'POST' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    if (result.success) {
+                        showToast('Paper added to collection');
+                        fetchPapers();
+                        fetchCollection();
+                    } else {
+                        showToast(result.error || 'Failed to add to collection');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error adding to collection:', error);
+                    showToast('Error adding to collection');
+                });
+        }
+
+//remove from collection function
+
+function removeFromCollection(docId) {
+            fetch(`/api/collection/remove/${docId}`, { method: 'POST' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    if (result.success) {
+                        showToast('Paper removed from collection');
+                        fetchPapers();
+                        fetchCollection();
+                    } else {
+                        showToast(result.error || 'Failed to remove from collection');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error removing from collection:', error);
+                    showToast('Error removing from collection');
+                });
+        }
+
+    // Download document
+    function downloadDocument(docId) {
+            fetch(`/api/download/${docId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    const doc = documents.find(d => d._id === docId);
+                    a.download = doc ? `${doc.title}.pdf` : `document-${docId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    console.error('Error downloading document:', error);
+                    showToast('Error downloading document');
+                });
+        }
+
+
+        // Delete documents
+        function deleteDocument(docId) {
+            if (confirm('Are you sure you want to delete this document?')) {
+                fetch(`/api/papers/${docId}`, { method: 'DELETE' })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(result => {
+                        if (result.success) {
+                            showToast('Document deleted successfully');
+                            fetchPapers();
+                            fetchCollection();
+                        } else {
+                            showToast(result.error || 'Failed to delete document');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error deleting document:', error);
+                        showToast('Error deleting document');
+                    });
+            }
+        }
+
+    // Handle profile picture upload
+    async function handleProfilePictureUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append('profilePicture', file);
+
+            try {
+                const response = await fetch('/upload-profile-picture', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('profile-picture').src = result.path;
+                    document.getElementById('sidebar-profile-picture').src = result.path;
+                    showToast('Profile picture updated');
+                }
+            } catch (error) {
+                console.error('Profile picture upload error:', error);
+                showToast('Failed to update profile picture');
+            }
+        }
+    }
+
+    // Handle profile update
+    function handleProfileUpdate(event) {
+    event.preventDefault();
+    const username = document.getElementById('profile-username').value;
+    const email = document.getElementById('profile-email').value;
+    currentUser = { ...currentUser, username, email };
+    updateUserProfile();
+    closeProfileModal();
+    showToast('Profile updated successfully');
+}
+
+    //Handle Logout
+    function handleLogout() {
+        currentUser = null;
+        updateUserProfile();
+        // Redirect to login page instead of showing auth page
+        window.location.href = '/login';
+    }
+
+    // Search functionality
+    function searchDocuments() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const filteredDocuments = documents.filter(doc => 
+                doc.title.toLowerCase().includes(searchTerm) || 
+                doc.subject.toLowerCase().includes(searchTerm) ||
+                doc.institution.toLowerCase().includes(searchTerm) ||
+                doc.educationLevel.toLowerCase().includes(searchTerm)
+            );
+            updateDocumentList(filteredDocuments);
+        }
+
+    
+
+    // Update recent upload
+    function updateRecentUpload() {
+            const recentUploadContainer = document.getElementById('recent-upload');
+            if (documents.length > 0) {
+                const latestDoc = documents[0]; // Assuming documents are sorted by upload date
+                recentUploadContainer.innerHTML = `
+                    <div class="flex items-center gap-3">
+                         
+                        <div>
+                            <p class="font-medium">${latestDoc.title}</p>
+                            <p class="text-sm text-gray-500">${new Date(latestDoc.uploadDate).toLocaleString()}</p>
+                        </div>
+                    </div>
+                    <button onclick="viewInList('${latestDoc._id}')" class="mt-2 text-blue-600 hover:underline">View in list</button>
+                `;
+            } else {
+                recentUploadContainer.innerHTML = '<p>No documents uploaded yet.</p>';
+            }
+        }
+
+        function viewInList(docId) {
+            showPage('browse');
+            setTimeout(() => {
+                const docElement = document.getElementById(`doc-${docId}`);
+                if (docElement) {
+                    docElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    docElement.classList.add('bg-yellow-100');
+                    setTimeout(() => {
+                        docElement.classList.remove('bg-yellow-100');
+                    }, 2000);
+                }
+            }, 100);
+        }
+
+    // Scroll to document
+    function scrollToDocument(docId) {
+            const docElement = document.getElementById(`doc-${docId}`);
+            if (docElement) {
+                docElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                docElement.classList.add('bg-yellow-100');
+                setTimeout(() => {
+                    docElement.classList.remove('bg-yellow-100');
+                }, 2000);
+            }
+        }
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', () => {
+        // Show success message if it exists
+         if (typeof message !== 'undefined' && message) { 
+            // Create and show toast notification
+            showToast('welcome');
+         } 
+
+        setTimeout(() => {
+            document.getElementById('loading').classList.add('hidden');
+            
+            // Show main content and home page by default
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('main-content');
+            
+            // Show sidebar
+            sidebar.classList.remove('hidden');
+            sidebar.classList.remove('-translate-x-full');
+            
+            // Adjust main content
+            mainContent.classList.remove('md:ml-0');
+            mainContent.classList.add('md:ml-64');
+            
+            // Show home page
+            showPage('home');
+            
+            // Update user profile
+            const username = '<%= typeof user !== "undefined" ? user.username : "Guest" %>';
+            currentUser = {
+                username: username,
+                email: '<%= typeof user !== "undefined" ? user.email : "" %>'
+            };
+            updateUserProfile();
+        }, 2000);
+
+        // Set the current user's ID
+        currentUser = {
+                _id: '<%= user._id %>',
+                username: '<%= user.username %>',
+                email: '<%= user.email %>'
+            };
+
+        // Fetch initial data
+        fetchPapers();
+        fetchCollection();
+
+         // Set up event listeners
+         setupEventListeners();
+    });
+
+    // Separate function for event listeners setup
+    function setupEventListeners() {
+        // Profile picture upload
+        document.querySelector('label[for="profile-picture-upload"]').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('profile-picture-upload').click();
+        });
+        document.getElementById('profile-picture-upload').addEventListener('change', handleProfilePictureUpload);
+
+        // Paper file input
+        document.getElementById('paper-file').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || 'No file chosen';
+            document.getElementById('file-name').textContent = fileName;
+        });
+
+        // Upload button
+        document.querySelector('label[for="file-upload"]').onclick = function(e) {
+            e.preventDefault();
+            handleFileUpload();
+        };
+
+        // Search input
+        const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', searchDocuments);
+            }
+
+        // Set default paper filter
+        document.getElementById('paper-level-filter').value = 'all';
+            filterPapers('all');
+    }
+
+    // Add this function to handle toast notifications
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-500 ease-in-out';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        // Remove toast after 3 seconds
+        setTimeout(() => {
+            toast.style.transform = 'translateX(150%)';
+            setTimeout(() => toast.remove(), 500);
+        }, 3000);
+    }
+
+    // Fetch and display papers
+    async function fetchPapers() {
+            try {
+                const response = await fetch('/api/papers');
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                documents = await response.json();
+                updateDocumentList(documents);
+                updateRecentUpload();
+            } catch (error) {
+                console.error('Error fetching papers:', error);
+                showToast('Error fetching papers');
+            }
+        }
+
+    // Fetch and display user's collection
+    async function fetchCollection() {
+            try {
+                const response = await fetch('/api/collection');
+                const collection = await response.json();
+                const collectionList = document.getElementById('collection-list');
+                collectionList.innerHTML = '';
+                collection.forEach(doc => {
+                    const docElement = createDocumentElement(doc, true);
+                    collectionList.appendChild(docElement);
+                });
+            } catch (error) {
+                console.error('Error fetching collection:', error);
+                showToast('Error fetching collection');
+            }
+        }
+
+    // Function to handle profile picture upload
+    async function uploadProfilePicture() {
+        const formData = new FormData();
+        const fileInput = document.getElementById('profile-picture-input'); // Assuming you have an input for file upload
+        formData.append('profilePicture', fileInput.files[0]);
+
+        try {
+            const response = await fetch('/upload-profile-picture', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                // Update the profile picture in the sidebar
+                document.getElementById('sidebar-profile-picture').src = result.path;
+
+                // Update the profile picture in the user profile section
+                document.getElementById('profile-picture').src = result.path;
+
+                alert('Profile picture updated successfully!');
+            } else {
+                alert('Failed to update profile picture: ' + result.error)
+            }
+        } catch (error) {
+            console.error('Error uploading profile picture:', error);
+            alert('Error uploading profile picture');
+        }
+    }
+
+    // Example of how to call this function on file input change
+    document.getElementById('profile-picture-input').addEventListener('change', uploadProfilePicture);
+</script>
+</head>
+<body class="bg-white">
+<!-- Loading Screen -->
+<div id="loading" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
+    <div class="flex justify-center items-center flex-col"> 
+        <img src="https://i.imghippo.com/files/aAEr3721KSQ.png" class="w-20 h-20">
+        <h1 class="text-4xl font-bold mb-2">KPPR</h1>
+    </div> 
+    <p class="text-gray-600 mb-4">Kenyan Past Papers Repository</p>
+    <div class="flex gap-2">
+        <div class="w-2 h-2 bg-black rounded-full animate-bounce"></div>
+        <div class="w-2 h-2 bg-red-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+        <div class="w-2 h-2 bg-green-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+    </div>
+</div>
+
+</div>
+
+<!-- Mobile Menu Button -->
+<button 
+    onclick="toggleMenu()"
+    class="fixed top-4 right-4 z-40 p-2 rounded-lg bg-white shadow-lg md:hidden"
+    aria-label="Toggle menu">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+</button>
+
+<!-- Sidebar Navigation -->
+<aside id="sidebar" class="fixed top-3 bottom-3 left-0 w-64 bg-white border-r-2 border-black transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out z-30 hidden">
+    <div class="flex flex-col h-full">
+        <!-- Logo -->
+        <div class="p-4 border-b">
+            <div class="flex justify-center items-center flex-row px-2"> 
+                <img src="https://i.imghippo.com/files/aAEr3721KSQ.png" class="w-10 h-10">
+                <h1 class="text-xl font-bold">KPPR</h1>    
+            </div> 
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 p-4 space-y-2">
+            
+            <button class="sidebar-button mb-2 w-full text-left text-base font-medium px-4 py-2 rounded-full hover:bg-gray-300 focus:outline focus:bg-gray-100 transition-colors" onclick="showPage('home')" data-page="home">
+                <img src="https://i.imghippo.com/files/mfj9603XXs.png" class="w-5 h-5 mr-2 inline-block">
+                Home
+            </button> 
+
+            <button class="sidebar-button mb-2 w-full text-left text-base font-medium px-4 py-2 rounded-full hover:bg-gray-300 focus:outline outline-gray focus:bg-gray-100 transition-colors" onclick="showPage('browse')" data-page="browse">
+                <img src="https://i.imghippo.com/files/EEsE2513xIk.png" class="w-5 h-5 mr-2 inline-block">
+                Browse Papers
+            </button>
+
+            <button class="sidebar-button mb-2 w-full text-left text-base font-medium px-4 py-2 rounded-full hover:bg-gray-300 focus:outline focus:bg-gray-100 transition-colors" onclick="showPage('collection')" data-page="collection">
+                <img src="https://i.imghippo.com/files/ISu3687lNE.png" class="w-5 h-5 mr-2 inline-block">
+                My Collection
+            </button>
+
+            <button class="sidebar-button mb-2 w-full text-left text-base font-medium px-4 py-2 rounded-full hover:bg-gray-300 focus:outline focus:bg-gray-100 transition-colors" onclick="showPage('about')" data-page="about">
+                <img src="https://i.imghippo.com/files/dQBu5194PW.png" class="w-5 h-5 mr-2 inline-block">
+                About
+            </button>
+
+        </nav>
+
+        <!-- Upload button -->
+        <div class="p-4">
+            <label for="file-upload" class="w-full bg-gray-600 text-white py-2 px-4 rounded-full hover:bg-gray-700 transition-colors cursor-pointer flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                Upload
+            </label>
+            <input id="file-upload" type="file" class="hidden" accept=".pdf,.doc,.docx">
+        </div>
+
+        <!-- User profile -->
+        <div class="p-4 border-t flex items-center gap-3">
+            <img id="sidebar-profile-picture" src="<%= user.profilePicture ? user.profilePicture.path : 'default-profile.png' %>" alt="Profile Picture" class="w-10 h-10 object-cover rounded-full cursor-pointer" onclick="showPage('profile')" />
+            <div>
+                <div id="user-name" class="font-medium cursor-pointer" onclick="showPage('profile')"><%= user.username %></div>
+                <div id="user-username" class="text-sm text-gray-500">@<%= user.username %></div>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<!-- Main Content  Area -->
+<main id="main-content" class="md:ml-64 min-h-screen">
+    <!-- Landing Page -->
+    <div id="home" class="hidden">
+        <div class="max-w-6xl mx-auto p-8">
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <div>
+                    <p class="text-lg mb-2 user-greeting">Karibu, <span class="font-medium"><%= user.username %></span></p>
+                    <h1 class="text-4xl font-bold mb-4">Welcome to the Kenyan Past Papers Repository</h1>
+                    <p class="text-gray-600 text-lg">
+                        Your one-stop centralized and personalized past paper repository, that grows with you as you climb up your education ladder.
+                    </p>
+                </div>
+                <div class="relative">
+                    <img 
+                        src="https://i.imghippo.com/files/FqW6997tUc.png"
+                        class="w-full h-auto"
+                    />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Browse Papers Page -->
+    <div id="browse" class="hidden">
+        <div class="h-48 bg-gray-100 mb-8">
+            <img 
+                src="https://i.imghippo.com/files/ZbxL1589YLE.png" 
+                alt=""
+                class="w-full h-full object-cover"
+            />
+        </div>
+        <div class="max-w-6xl mx-auto p-8">
+            <div class="grid md:grid-cols-[1fr,300px] gap-8">
+                <div>
+                    <div class="flex justify-between items-center mb-8">
+                        <h1 class="text-4xl font-bold" id="papers-title">ALL PAST PAPERS</h1>
+                        <select 
+                            id="paper-level-filter" 
+                            class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="filterPapers(this.value)"
+                        >
+                            <option value="all">ALL PAST PAPERS</option>
+                            <option value="university">UNIVERSITY PAST PAPERS</option>
+                            <option value="secondary">SECONDARY SCHOOL PAPERS</option>
+                            <option value="primary">PRIMARY SCHOOL PAPERS</option>
+                        </select>
+                    </div>
+                    <div class="mb-8">
+                        <input type="text" id="search-input" placeholder="Search papers..." class="w-full px-4 py-2 rounded-full border border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div id="browse-list" class="space-y-4 custom-scrollbar max-h-[600px] overflow-y-auto">
+                        <!-- Document list will be populated here -->
+                    </div>
+                </div>
+                <div class="bg-gray-200 p-4 rounded-lg h-fit">
+                    <h2 class="font-bold mb-4">Recent Upload</h2>
+                    <div id="recent-upload" class="space-y-4">
+                        <!-- Recent upload will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Collection Page -->
+    <div id="collection" class="hidden">
+        <div class="h-48 bg-gray-100 mb-8">
+            <img 
+                src="https://i.imghippo.com/files/vYP5431w.jpg" 
+                alt=""
+                class="w-full h-full object-cover"
+            />
+        </div>
+        <div class="max-w-6xl mx-auto p-8">
+            
+                <div>
+                    <h1 class="text-4xl font-bold mb-4">MY COLLECTION</h1>
+                    <p class="text-gray-600 mb-8">This is your personalized collection of revision materials</p>
+                    <div id="collection-list" class="space-y-4 custom-scrollbar max-h-[600px] overflow-y-auto">
+                        <!-- Collection list will be populated here -->
+                    </div>
+                </div>
+            
+        </div>
+    </div>
+
+    <!-- File upload modal -->
+    <div id="upload-modal" class="hidden fixed inset-0 backdrop-blur-md bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="backdrop-blur-md drop-shadow-md bg-white/60 p-8 rounded-lg w-full max-w-2xl mx-4">
+            <h2 class="text-3xl font-bold mb-6">Upload a Past Paper</h2>
+            <form onsubmit="handlePaperUpload(event)" class="space-y-4">
+                <div>
+                    <label class="block mb-2">
+                        <input 
+                            type="file" 
+                            id="paper-file" 
+                            class="hidden" 
+                            accept=".pdf,.doc,.docx"
+                            required
+                        />
+                        <div class="border-2 rounded-full p-4 text-center cursor-pointer hover:bg-gray-50">
+                            <span id="file-name" class="font-medium">No file chosen</span>
+                        </div>
+                    </label>
+                </div>
+                <div>
+                    <input 
+                        type="text" 
+                        id="paper-title" 
+                        placeholder="Paper Title" 
+                        class="w-full px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                    />
+                </div>
+                <div>
+                    <select 
+                        id="education-level" 
+                        class="w-full px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                    >
+                        <option value="">Select Education Level</option>
+                        <option value="university">University</option>
+                        <option value="secondary">Secondary School</option>
+                        <option value="primary">Primary School</option>
+                    </select>
+                </div>
+                <div>
+                    <input 
+                        type="text" 
+                        id="institution" 
+                        placeholder="Institution" 
+                        class="w-full px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                    />
+                </div>
+                <div>
+                    <input 
+                        type="text" 
+                        id="subject" 
+                        placeholder="Subject" 
+                        class="w-full px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                    />
+                </div>
+                <div>
+                    <input 
+                        type="number" 
+                        id="year" 
+                        placeholder="Year" 
+                        class="w-full px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                    />
+                </div>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button 
+                        type="button" 
+                        onclick="closeUploadModal()" 
+                        class="px-6 py-2 font-medium border-2 rounded-full hover:bg-gray-50"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        type="submit" 
+                        class="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700"
+                    >
+                        Upload Paper
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- About Page -->
+    <div id="about" class="hidden">
+        <div class="max-w-6xl mx-auto p-8">
+                <div>
+                    <h1 class="text-4xl font-bold mb-4">About Us</h1>
+                    <p class="text-gray-600 text-lg">
+                        This is a platform that is aimed at Kenyan students, enabling them to share and access revision materials by offering them a centralized and personalized ease of access to past papers from primary to university education levels across Kenya. Thus growing up with them as they scale up their education levels.
+                    </p></br>
+                    <p>Version: 1.0</p>
+                </div>
+        </div>
+    </div>
+
+    <!-- Profile Page -->
+<div id="profile" class="hidden fixed inset-0 backdrop-blur-md bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div class="backdrop-blur-md drop-shadow-md bg-white/60 p-8 rounded-lg w-full max-w-2xl mx-4">
+        <h2 class="text-3xl font-bold mb-6">User Profile</h2>
+        <div class="mb-8 flex flex-col sm:flex-row items-center gap-4">
+            <img 
+                id="profile-picture" 
+                src="<%= user.profilePicture ? user.profilePicture.path : 'default-profile.png' %>" 
+                alt="Profile picture" 
+                class="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover outline-2"
+            />
+            <div class="flex flex-col sm:flex-row gap-4">
+                <label 
+                    for="profile-picture-upload" 
+                    class="cursor-pointer bg-gray-500 text-white px-4 py-2 rounded-full hover:bg-gray-600 transition-colors text-center">
+                    Change Profile Picture
+                </label>
+                <input id="profile-picture-upload" type="file" accept="image/*" class="hidden" />
+                <button 
+                        type="button" 
+                        onclick="handleLogout()" 
+                        class="w-full sm:w-auto px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors">
+                        Logout
+                </button>
+            </div>
+        </div>
+        
+        <form onsubmit="handleProfileUpdate(event)" class="space-y-4">
+            <div>
+                <label for="profile-username" class="block text-sm font-medium text-gray-700">Username</label>
+                <input type="text" id="profile-username" class="w-full px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label for="profile-email" class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" id="profile-email" name="email" class="w-full px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex justify-end gap-4 mt-6">
+                <button 
+                    type="button" 
+                    onclick="closeProfileModal()" 
+                    class="px-6 py-2 font-medium border-2 rounded-full hover:bg-gray-50"
+                >
+                    Cancel
+                </button>
+                <button 
+                    type="submit" 
+                    class="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700"
+                >
+                    Update Profile
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+    <!-- Footer -->
+    <footer class="text-center text-sm text-gray-500 py-4 mt-auto">
+        <p>Copyright &copy; 2024</p>
+        <p>Kenya Past Paper Repository (KPPR)</p>
+    </footer>
+</main>
+</body>
+<script>
+
+        // Update this function to display the correct file name
+        function handleFileUpload() {
+            document.getElementById('upload-modal').classList.remove('hidden');
+            const fileInput = document.getElementById('paper-file');
+            fileInput.addEventListener('change', function(e) {
+                const fileName = e.target.files[0]?.name || 'No file chosen';
+                document.getElementById('file-name').textContent = fileName;
+            });
+        }
+
+        // Update this function to sort papers by education level
+        function filterPapers(level) {
+            const title = document.getElementById('papers-title');
+            switch(level) {
+                case 'all':
+                    title.textContent = 'ALL PAST PAPERS';
+                    break;
+                case 'university':
+                    title.textContent = 'UNIVERSITY PAST PAPERS';
+                    break;
+                case 'secondary':
+                    title.textContent = 'SECONDARY SCHOOL PAPERS';
+                    break;
+                case 'primary':
+                    title.textContent = 'PRIMARY SCHOOL PAPERS';
+                    break;
+            }
+            
+            const browseList = document.getElementById('browse-list');
+            browseList.innerHTML = '';
+            
+            const filteredDocs = level === 'all' ? documents : documents.filter(doc => doc.educationLevel.toLowerCase() === level);
+            filteredDocs.forEach(doc => {
+                const docElement = createDocumentElement(doc);
+                browseList.appendChild(docElement);
+            });
+        }
+
+
+    
+
+        // initialization function to fetch papers
+        document.addEventListener('DOMContentLoaded', () => {
+    
+
+            // Set the current user's ID
+            currentUser = {
+                _id: '<%= user._id %>',
+                username: '<%= user.username %>',
+                email: '<%= user.email %>'
+            };
+
+            // Fetch initial data
+            fetchPapers();
+            fetchCollection();
+        });
+
+        // ... (rest of the JavaScript code) ...
+    </script>
+</html>

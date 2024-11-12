@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="form.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style type="text/tailwind">
+        @layer base {
+            body {
+                background-color: #f0f0f0;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+<div class="w-full max-w-md space-y-4">
+    
+        <div class="flex justify-center items-center flex-col"> 
+            <img src="https://i.imghippo.com/files/aAEr3721KSQ.png" class="w-20 h-20">
+            <h1 class="text-4xl font-bold text-center">KPPR</h1>
+        </div> 
+    <h2 class="text-xl font-bold text-center">Login</h2>
+    <form action="/login" method="post" class="space-y-4 px-10 py-10">
+        <input 
+            name="username" 
+            id="username" 
+            type="text" 
+            placeholder="Username" 
+            class="w-full px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"  
+            required 
+        />
+        <input 
+            name="password" 
+            id="password" 
+            type="password" 
+            placeholder="Password" 
+            class="w-full px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"  
+            required 
+        />
+        <button type="submit" class="w-full px-6 py-2 bg-black text-white rounded-full hover:bg-gray-800 transition-colors">
+            Login
+        </button>
+        <p class="text-center text-blue-600 hover:underline"><a href="/signup">Don't have an account</a></p>
+    </form>
+    <div class="text-center text-sm text-gray-500">
+        <p>Copyright &copy; 2024</p>
+        <p>Kenya Past Paper Repository (KPPR)</p>
+    </div>
+</div>    
+</body>
+</html>
