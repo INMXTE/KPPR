@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-// Create file schema
+// File Schema Definition
 const FileSchema = new mongoose.Schema({
     title: String,
     filename: String,
@@ -19,6 +19,7 @@ const FileSchema = new mongoose.Schema({
     }
 });
 
+// User Schema Definition
 const LoginSchema = new mongoose.Schema({
     username: {
         type: String,
@@ -50,7 +51,7 @@ const LoginSchema = new mongoose.Schema({
     }
 });
 
-// Connect to MongoDB
+// Function to connect to MongoDB
 const connectDB = async () => {
     try {
         await mongoose.connect("mongodb://localhost:27017/KPPR-database");
@@ -61,8 +62,7 @@ const connectDB = async () => {
     }
 };
 
-
-// Create models
+// Create models from schemas
 const Users = mongoose.model("users", LoginSchema);
 const Files = mongoose.model("files", FileSchema);
 
@@ -72,3 +72,6 @@ module.exports = {
     Users,
     Files
 }; 
+
+// Log to confirm the module has been loaded
+console.log("Database configuration module loaded");

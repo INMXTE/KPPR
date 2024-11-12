@@ -11,11 +11,11 @@ const { connectDB, Users, Files } = require('./config');
 // Middleware Configuration
 // ===============================
 
-// View engine setup
+// Set up view engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 
-// Basic middleware
+// Configure basic middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
@@ -25,7 +25,7 @@ app.use(session({
 }));
 app.use('/uploads', express.static('uploads'));
 
-// Multer configuration for file uploads
+// Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const dir = './uploads';
@@ -41,14 +41,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Database connection
+// Connect to database
 connectDB();
 
 // ===============================
 // Authentication Routes
 // ===============================
 
-// Render routes
+// Render signup and login pages
 app.get('/signup', (req, res) => {
     res.render('signup', { error: null });
 });
@@ -57,17 +57,17 @@ app.get('/login', (req, res) => {
     res.render('login', { error: null });
 });
 
-// Signup handler
+// Handle user signup
 app.post("/signup", async (req, res) => {
     try {
         const { username, email, password } = req.body;
 
-        // Input validation
+        // Validate input
         if (!username || !email || !password) {
             return res.render('signup', { error: 'All fields are required' });
         }
 
-        // Check existing user
+        // Check for existing user
         const existingUser = await Users.findOne({
             $or: [{ username }, { email }]
         });
@@ -99,7 +99,7 @@ app.post("/signup", async (req, res) => {
     }
 });
 
-// Login handler
+// Handle user login
 app.post("/login", async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -128,7 +128,7 @@ app.post("/login", async (req, res) => {
     }
 });
 
-// Logout handler
+// Handle user logout
 app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
@@ -138,7 +138,7 @@ app.get('/logout', (req, res) => {
 // Main Application Routes
 // ===============================
 
-// Home page
+// Render home page
 app.get('/', (req, res) => {
     if (!req.session.user) {
         return res.redirect('/login');
@@ -149,7 +149,7 @@ app.get('/', (req, res) => {
     });
 });
 
-// Profile picture upload
+// Handle profile picture upload
 app.post('/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
     try {
         if (!req.session.user) {
@@ -158,7 +158,7 @@ app.post('/upload-profile-picture', upload.single('profilePicture'), async (req,
 
         const user = await Users.findOne({ username: req.session.user.username });
         
-        // Handle old profile picture
+        // Remove old profile picture if exists
         if (user.profilePicture?.path) {
             try {
                 fs.unlinkSync(user.profilePicture.path);
@@ -185,7 +185,7 @@ app.post('/upload-profile-picture', upload.single('profilePicture'), async (req,
     }
 });
 
-// Paper upload
+// Handle paper upload
 app.post('/upload-paper', upload.single('paper'), async (req, res) => {
     try {
         if (!req.session.user) {
@@ -215,7 +215,7 @@ app.post('/upload-paper', upload.single('paper'), async (req, res) => {
     }
 });
 
-// downloading papers
+// Handle paper download
 app.get('/api/download/:fileId', async (req, res) => {
     try {
         if (!req.session.user) {
@@ -239,7 +239,7 @@ app.get('/api/download/:fileId', async (req, res) => {
     }
 });
 
-// deleting papers
+// Handle paper deletion
 app.delete('/api/papers/:fileId', async (req, res) => {
     try {
         if (!req.session.user) {
@@ -306,8 +306,7 @@ app.get('/api/papers', async (req, res) => {
     }
 });
 
-// Collection management routes
-
+// Get user's collection
 app.get('/api/collection', async (req, res) => {
     try {
         if (!req.session.user) {
@@ -329,6 +328,7 @@ app.get('/api/collection', async (req, res) => {
     }
 });
 
+// Add paper to collection
 app.post('/api/collection/add/:fileId', async (req, res) => {
     try {
         if (!req.session.user) {
@@ -347,6 +347,7 @@ app.post('/api/collection/add/:fileId', async (req, res) => {
     }
 });
 
+// Remove paper from collection
 app.post('/api/collection/remove/:fileId', async (req, res) => {
     try {
         if (!req.session.user) {
@@ -362,7 +363,6 @@ app.post('/api/collection/remove/:fileId', async (req, res) => {
         res.status(500).json({ error: 'Failed to remove from collection' });
     }
 });
-
 
 // ===============================
 // Server Initialization
