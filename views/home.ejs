@@ -450,31 +450,33 @@
 
     // Function to handle paper upload form submission
     async function handlePaperUpload(event) {
-        event.preventDefault();
-        
-        const formData = new FormData();
-        formData.append('paper', document.getElementById('paper-file').files[0]);
-        formData.append('title', document.getElementById('paper-title').value);
-        formData.append('educationLevel', document.getElementById('education-level').value);
-        formData.append('institution', document.getElementById('institution').value);
-        formData.append('subject', document.getElementById('subject').value);
-        formData.append('year', document.getElementById('year').value);
+    event.preventDefault();
+    
+    const formData = new FormData();
+    formData.append('paper', document.getElementById('paper-file').files[0]);
+    formData.append('title', document.getElementById('paper-title').value);
+    formData.append('educationLevel', document.getElementById('education-level').value);
+    formData.append('institution', document.getElementById('institution').value);
+    formData.append('subject', document.getElementById('subject').value);
+    formData.append('year', document.getElementById('year').value);
 
-        try {
-            const response = await fetch('/upload-paper', {
-                method: 'POST',
-                body: formData
-            });
-            const result = await response.json();
-            if (result.success) {
-                closeUploadModal();
-                fetchPapers();
-                showToast('Paper uploaded successfully');
-            }
-        } catch (error) {
-            console.error('Upload error:', error);
-            showToast('Failed to upload paper');
+    try {
+        const response = await fetch('/upload-paper', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (result.success) {
+            closeUploadModal();
+            await fetchPapers();
+            showToast('Paper uploaded successfully');
+        } else {
+            showToast(result.error || 'Failed to upload paper');
         }
+    } catch (error) {
+        console.error('Upload error:', error);
+        showToast('Failed to upload paper');
+    }
     }
 
     // Function to close upload form
@@ -504,78 +506,91 @@
     }
 
     // Function to update document list
-    function updateDocumentList(docs) {
-        const browseList = document.getElementById('browse-list');
-        browseList.innerHTML = '';
-        docs.forEach(doc => {
-            const docElement = createDocumentElement(doc, false);
-            browseList.appendChild(docElement);
-        });
+    async function updateDocumentList(docs) {
+    const browseList = document.getElementById('browse-list');
+    browseList.innerHTML = '';
+    for (const doc of docs) {
+        const docElement = await createDocumentElement(doc, false);
+        browseList.appendChild(docElement);
+    }
     }
 
     // Function to filter papers by education level
-    function filterPapers(level) {
-        const title = document.getElementById('papers-title');
-        switch(level) {
-            case 'all':
-                title.textContent = 'ALL PAST PAPERS';
-                break;
-            case 'university':
-                title.textContent = 'UNIVERSITY PAST PAPERS';
-                break;
-            case 'secondary':
-                title.textContent = 'SECONDARY SCHOOL PAPERS';
-                break;
-            case 'primary':
-                title.textContent = 'PRIMARY SCHOOL PAPERS';
-                break;
-        }
-        
-        const browseList = document.getElementById('browse-list');
-        browseList.innerHTML = '';
-        
-        const filteredDocs = level === 'all' ? documents : documents.filter(doc => doc.educationLevel === level);
-        filteredDocs.forEach(doc => {
-            const docElement = createDocumentElement(doc);
-            browseList.appendChild(docElement);
-        });
+    async function filterPapers(level) {
+    const title = document.getElementById('papers-title');
+    switch(level) {
+        case 'all':
+            title.textContent = 'ALL PAST PAPERS';
+            break;
+        case 'university':
+            title.textContent = 'UNIVERSITY PAST PAPERS';
+            break;
+        case 'secondary':
+            title.textContent = 'SECONDARY SCHOOL PAPERS';
+            break;
+        case 'primary':
+            title.textContent = 'PRIMARY SCHOOL PAPERS';
+            break;
+    }
+    
+    const browseList = document.getElementById('browse-list');
+    browseList.innerHTML = '';
+    
+    const filteredDocs = level === 'all' ? documents : documents.filter(doc => doc.educationLevel.toLowerCase() === level.toLowerCase());
+    for (const doc of filteredDocs) {
+        const docElement = await createDocumentElement(doc, false);
+        browseList.appendChild(docElement);
+    }
     }
 
     // Function to create document element
-    function createDocumentElement(doc, isCollectionView = false) {
-        const docElement = document.createElement('div');
-        docElement.id = `doc-${doc._id}`;
-        docElement.className = 'paper-card bg-white shadow-md rounded-lg p-4 mb-4';
-        docElement.innerHTML = `
-            <div class="flex gap-4">
-                <img src="${doc.uploadedBy.profilePicture ? doc.uploadedBy.profilePicture.url : '/default-profile.png'}" alt="Profile Picture" class="w-10 h-10 object-cover rounded-full" />
-                <div>
-                    <h3 class="font-bold">${doc.title}</h3>
-                    <p class="text-gray-600">Uploaded by ${doc.uploadedBy.username} on ${new Date(doc.uploadDate).toLocaleDateString()}</p>
-                    <p class="text-sm text-blue-600 mt-1">
-                        <span class="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded">#${doc.subject}</span>
-                        <span class="bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded">#${doc.institution}</span>
-                    </p>
-                </div>
+    async function createDocumentElement(doc, isCollectionView = false) {
+    const isAdmin = await checkAdminStatus();
+    const docElement = document.createElement('div');
+    docElement.id = `doc-${doc._id}`;
+    docElement.className = 'paper-card bg-white shadow-md rounded-lg p-4 mb-4';
+    docElement.innerHTML = `
+        <div class="flex gap-4">
+            <img src="${doc.uploadedBy.profilePicture ? doc.uploadedBy.profilePicture.url : '/default-profile.png'}" alt="Profile Picture" class="w-10 h-10 object-cover rounded-full" />
+            <div>
+                <h3 class="font-bold">${doc.title}</h3>
+                <p class="text-gray-600">Uploaded by ${doc.uploadedBy.username} on ${new Date(doc.uploadDate).toLocaleDateString()}</p>
+                <p class="text-sm text-blue-600 mt-1">
+                    <span class="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded">#${doc.subject}</span>
+                    <span class="bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded">#${doc.institution}</span>
+                </p>
             </div>
-            <div class="mt-2 flex gap-2">
-                <button onclick="downloadDocument('${doc._id}')" class="text-blue-600 hover:underline">Download</button>
-                ${isCollectionView 
-                    ? `<button onclick="removeFromCollection('${doc._id}')" class="text-red-600 hover:underline">Remove from Collection</button>`
-                    : `<button onclick="${doc.inCollection ? `removeFromCollection('${doc._id}')` : `addToCollection('${doc._id}')`}" 
-                            class="${doc.inCollection ? 'text-red-600' : 'text-green-600'} hover:underline">
-                        ${doc.inCollection ? 'Added to Collection' : 'Add to Collection'}
-                      </button>`
-                }
-                ${doc.isUploader
-                    ? `<button onclick="deleteDocument('${doc._id}')" class="text-red-600 hover:underline">Delete</button>`
-                    : ''
-                }
-            </div>
-        `;
-        return docElement;
+        </div>
+        <div class="mt-2 flex gap-2">
+            <button onclick="downloadDocument('${doc._id}')" class="text-blue-600 hover:underline">Download</button>
+            ${isCollectionView 
+                ? `<button onclick="removeFromCollection('${doc._id}')" class="text-red-600 hover:underline">Remove from Collection</button>`
+                : `<button onclick="${doc.inCollection ? `removeFromCollection('${doc._id}')` : `addToCollection('${doc._id}')`}" 
+                        class="${doc.inCollection ? 'text-red-600' : 'text-green-600'} hover:underline">
+                    ${doc.inCollection ? 'Added to Collection' : 'Add to Collection'}
+                  </button>`
+            }
+            ${isAdmin
+                ? `<button onclick="deleteDocument('${doc._id}')" class="text-red-600 hover:underline">Delete</button>`
+                : ''
+            }
+        </div>
+    `;
+    return docElement;
     }
 
+    // Checking if the current user is an admin
+    async function checkAdminStatus() {
+    try {
+        const response = await fetch('/api/user/isAdmin');
+        const data = await response.json();
+        return data.isAdmin;
+    } catch (error) {
+        console.error('Error checking admin status:', error);
+        return false;
+    }
+    } 
+    
     // Function to add document to collection
     function addToCollection(docId) {
         fetch(`/api/collection/add/${docId}`, { method: 'POST' })
@@ -652,28 +667,28 @@
 
     // Function to delete document
     function deleteDocument(docId) {
-        if (confirm('Are you sure you want to delete this document?')) {
-            fetch(`/api/papers/${docId}`, { method: 'DELETE' })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(result => {
-                    if (result.success) {
-                        showToast('Document deleted successfully');
-                        fetchPapers();
-                        fetchCollection();
-                    } else {
-                        showToast(result.error || 'Failed to delete document');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting document:', error);
-                    showToast('Error deleting document');
-                });
-        }
+    if (confirm('Are you sure you want to delete this document?')) {
+        fetch(`/api/papers/${docId}`, { method: 'DELETE' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(result => {
+                if (result.success) {
+                    showToast('Document deleted successfully');
+                    fetchPapers();
+                    fetchCollection();
+                } else {
+                    showToast(result.error || 'Failed to delete document');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting document:', error);
+                showToast('Error deleting document');
+            });
+    }
     }
 
     // Function to handle profile picture upload
@@ -779,7 +794,7 @@
     }
 
     // Initialize page
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async() => {
         // Show success message if it exists
         if (typeof message !== 'undefined' && message) { 
             // Create and show toast notification
@@ -821,10 +836,15 @@
         };
 
         // Fetch initial data
-        fetchPapers();
-        fetchCollection();
+        try {
+        await fetchPapers();
+        await fetchCollection();
+        } catch (error) {
+        console.error('Error fetching initial data:', error);
+        showToast('Error loading initial data');
+        }
 
-        // Set up event listeners
+         // Set up event listeners
         setupEventListeners();
     });
 
@@ -856,7 +876,9 @@
         }
 
         // Set default paper filter
-        document.getElementById('paper-level-filter').value = 'all';
+        const paperLevelFilter = document.getElementById('paper-level-filter');
+        paperLevelFilter.value = 'all';
+        paperLevelFilter.addEventListener('change', (e) => filterPapers(e.target.value));
         filterPapers('all');
     }
 
@@ -876,35 +898,38 @@
 
     // Function to fetch and display papers
     async function fetchPapers() {
-        try {
-            const response = await fetch('/api/papers');
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            documents = await response.json();
-            updateDocumentList(documents);
-            updateRecentUpload();
-        } catch (error) {
-            console.error('Error fetching papers:', error);
-            showToast('Error fetching papers');
+    try {
+        const response = await fetch('/api/papers');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
         }
+        documents = await response.json();
+        await updateDocumentList(documents);
+        updateRecentUpload();
+    } catch (error) {
+        console.error('Error fetching papers:', error);
+        showToast('Error fetching papers');
+    }
     }
 
     // Function to fetch and display user's collection
     async function fetchCollection() {
-        try {
-            const response = await fetch('/api/collection');
-            const collection = await response.json();
-            const collectionList = document.getElementById('collection-list');
-            collectionList.innerHTML = '';
-            collection.forEach(doc => {
-                const docElement = createDocumentElement(doc, true);
-                collectionList.appendChild(docElement);
-            });
-        } catch (error) {
-            console.error('Error fetching collection:', error);
-            showToast('Error fetching collection');
+    try {
+        const response = await fetch('/api/collection');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
         }
+        const collection = await response.json();
+        const collectionList = document.getElementById('collection-list');
+        collectionList.innerHTML = '';
+        for (const doc of collection) {
+            const docElement = await createDocumentElement(doc, true);
+            collectionList.appendChild(docElement);
+        }
+    } catch (error) {
+        console.error('Error fetching collection:', error);
+        showToast('Error fetching collection');
+    }
     }
 
     // Function to handle profile picture upload

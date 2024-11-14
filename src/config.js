@@ -1,6 +1,7 @@
+// File Schema Definition
 const mongoose = require("mongoose");
 
-// File Schema Definition
+// Create file schema
 const FileSchema = new mongoose.Schema({
     title: String,
     filename: String,
@@ -34,6 +35,10 @@ const LoginSchema = new mongoose.Schema({
     password: {
         type: String,
         required: true
+    },
+    isAdmin: {
+        type: Boolean,
+        default: false
     },
     profilePicture: {
         filename: String,

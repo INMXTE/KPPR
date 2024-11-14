@@ -60,14 +60,14 @@ app.get('/login', (req, res) => {
 // Handle user signup
 app.post("/signup", async (req, res) => {
     try {
-        const { username, email, password } = req.body;
+        const { username, email, password, isAdmin } = req.body;
 
-        // Validate input
+        // Input validation
         if (!username || !email || !password) {
             return res.render('signup', { error: 'All fields are required' });
         }
 
-        // Check for existing user
+        // Check existing user
         const existingUser = await Users.findOne({
             $or: [{ username }, { email }]
         });
@@ -81,15 +81,18 @@ app.post("/signup", async (req, res) => {
         const newUser = new Users({
             username,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            isAdmin: isAdmin === 'on' // Convert checkbox value to boolean
         });
 
         await newUser.save();
 
         // Set session
         req.session.user = {
+            _id: newUser._id,
             username: newUser.username,
-            email: newUser.email
+            email: newUser.email,
+            isAdmin: newUser.isAdmin
         };
 
         res.redirect('/');
@@ -115,8 +118,10 @@ app.post("/login", async (req, res) => {
         }
 
         req.session.user = {
+            _id: user._id,
             username: user.username,
             email: user.email,
+            isAdmin: user.isAdmin,
             profilePicture: user.profilePicture,
             collection: user.savedPapers
         };
@@ -246,16 +251,16 @@ app.delete('/api/papers/:fileId', async (req, res) => {
             return res.status(401).json({ error: 'Not authenticated' });
         }
 
+        if (!req.session.user.isAdmin) {
+            return res.status(403).json({ error: 'Not authorized to delete this file' });
+        }
+
         const file = await Files.findById(req.params.fileId);
         if (!file) {
             return res.status(404).json({ error: 'File not found' });
         }
 
-        if (file.uploadedBy.toString() !== req.session.user._id) {
-            return res.status(403).json({ error: 'Not authorized to delete this file' });
-        }
-
-        const filePath = path.join(__dirname, '..', file.path);
+        const filePath = path.join(process.cwd(), file.path);
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
         }
@@ -272,6 +277,15 @@ app.delete('/api/papers/:fileId', async (req, res) => {
     } catch (error) {
         console.error('Error deleting file:', error);
         res.status(500).json({ error: 'Failed to delete file' });
+    }
+});
+
+// Checking if the current user is an admin
+app.get('/api/user/isAdmin', (req, res) => {
+    if (req.session.user && req.session.user.isAdmin) {
+        res.json({ isAdmin: true });
+    } else {
+        res.json({ isAdmin: false });
     }
 });
 
